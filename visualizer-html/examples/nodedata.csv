@@ -1,0 +1,4 @@
+node,type,data
+0x1001,int,64
+0x1001,char,97
+0x2001,int,65

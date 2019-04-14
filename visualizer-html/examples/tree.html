@@ -57,6 +57,10 @@ var svg = d3.select("body").append("svg")
 // load the external data
 d3.csv("treedata.csv", function(error, data) {
 
+  console.log("data");
+    console.log(data);
+    console.log("end-data");
+    
   // *********** Convert flat data into a nice tree ***************
   // create a name: node map
   var dataMap = data.reduce(function(map, node) {
@@ -82,6 +86,22 @@ d3.csv("treedata.csv", function(error, data) {
 
   root = treeData[0];
   update(root);
+});
+
+var payload = {};
+
+d3.csv("nodedata.csv", function(error,data) {
+  
+  console.log(data);
+  
+  data.forEach(function(line) {
+    console.log("line" + line + " " + line.node + " " + line.type + " " + line.data);
+    payload[line.node] = {"type":line.type, "data":line.data};
+  });
+  
+  console.log("payload" + payload);
+  console.log("payload" + payload[0x1001]);
+  
 });
 
 
@@ -135,31 +155,34 @@ function update(source) {
 // Create Event Handlers for mouse
 function handleMouseOver(d, i) {  // Add interactivity
 
+  console.log(d);
+
   // Use D3 to select element, change color and size
   d3.select(this).attr({
     fill: "orange"
   });
 
   // Specify where to put label of text
-    svg.append("text").attr({
-               id: "t" + d.x + "-" + d.y + "-" + i,  // Create an id for text so we can select it later for removing on mouseout
-                x: function() { return xScale(d.x) - 30; },
-                y: function() { return yScale(d.y) - 15; }
-            })
-            .text(function() {
-              return [d.x, d.y];  // Value of the text
-            });
-          }
+  svg.append("text").attr({
+      id: "#t-" + d.name, // Create an id for text so we can select it later for removing on mouseout
+      x: d.x, y: d.y
+    })
+    .text(function() {
+      console.log("print text "+d + " " + payload[d.name]);
+      return payload[d.name].type + payload[d.name].data;  // Value of the text
+    });
+             
+}
 
-      function handleMouseOut(d, i) {
-            // Use D3 to select element, change color back to normal
-            d3.select(this).attr({
-              fill: "black",
-            });
+function handleMouseOut(d, i) {
+  // Use D3 to select element, change color back to normal
+  d3.select(this).attr({
+    fill: "black"
+  });
 
-            // Select text by id and then remove
-            d3.select("#t" + d.x + "-" + d.y + "-" + i).remove();  // Remove text location
-          }
+  // Select text by id and then remove
+  d3.select("#t-" + d.name).remove();  // Remove text location
+}
 
 
 </script>
