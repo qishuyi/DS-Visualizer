@@ -2,6 +2,7 @@
 <!-- tree taken from http://bl.ocks.org/d3noob/fa0f16e271cb191ae85f -->
 <!-- mouseevents taken from http://bl.ocks.org/WilliamQLiu/76ae20060e19bf42d774 -->
 <!-- tooltip taken from http://bl.ocks.org/d3noob/a22c42db65eb00d4e369 -->
+<!-- dropdown take from http://bl.ocks.org/williaster/10ef968ccfdc71c30ef8 -->
 
 <html lang="en">
   <head>
@@ -40,6 +41,8 @@
   </head>
 
   <body>
+
+<div id='vis-container'></div>
 
 <!-- load the d3.js library -->	
 <script src="http://d3js.org/d3.v3.min.js"></script>
@@ -82,6 +85,8 @@ d3.csv("treedata.csv", function(error, data) {
     map[node.name] = node;
     return map;
   }, {});
+  
+  console.log("dataMap:", dataMap);
 
   // create the tree array
   var treeData = [];
@@ -201,8 +206,13 @@ function update(source) {
 	  .attr("class", "link")
 	  .attr("d", diagonal);
 
-}
+  node.exit().remove();
+  link.exit().remove();
 
+
+  /* from drop-down */
+
+}
 // Create Event Handlers for mouse
 function handleMouseOver(d, i) {  // Add interactivity
 
@@ -212,6 +222,8 @@ function handleMouseOver(d, i) {  // Add interactivity
 function handleMouseOut(d, i) {
   
 }
+
+
 
 
 </script>
