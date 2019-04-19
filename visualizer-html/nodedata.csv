@@ -1,4 +1,21 @@
 node,type,data
-0x1001,int,64
-0x1001,char,97
-0x2001,int,65
+--,--,1
+0x1001,int value,64
+0x1001,node left,0x2001
+0x1001,node right,0x3001
+0x1001,char value,97
+0x2001,int value,65
+0x2001,node left,0x2008
+0x2001,node right,0x2005
+0x300A,unsigned int birthday,1209
+0x300D,long long really_long,30624700306247705342013962
+--,--,2
+0x1001,int value,128
+0x1001,node left,0x2001
+0x1001,node right,0x3001
+0x1001,char value,184
+0x2001,int value,130
+0x2001,node left,0x2008
+0x2001,node right,0x2005
+0x300A,unsigned int birthday,2418
+0x300D,long long really_long,30624700306247705342013962

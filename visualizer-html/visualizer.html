@@ -28,9 +28,7 @@
   
   div.tooltip {	
     position: absolute;			
-    width: 60px;					
-    height: 28px;					
-    padding: 2px;				
+    padding: 5px;				
     font: 12px sans-serif;		
     background: #f6f6f6;	
     border: 0px;		
@@ -67,7 +65,7 @@ var svg = d3.select("body").append("svg")
   .append("g")
 	.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-var payload = {};
+var payload = [];
 
 var div = d3.select("body").append("div")	
     .attr("class", "tooltip")				
@@ -101,6 +99,8 @@ d3.csv("treedata.csv", function(error, data) {
     }
   });
 
+  console.log(treeData);
+
   root = treeData[0];
   update(root);
 });
@@ -108,13 +108,28 @@ d3.csv("treedata.csv", function(error, data) {
 
 d3.csv("nodedata.csv", function(error,data) {
     
-  data.forEach(function(line) {
-    console.log("line" + line + " " + line.node + " " + line.type + " " + line.data);
+  var time;
     
-    if (payload[line.node] == null) 
-      payload[line.node] = [];
-          
-    payload[line.node].push({"type":line.type, "data":line.data});
+  data.forEach(function(line) {
+    //console.log("line" + line + " " + line.node + " " + line.type + " " + line.data);
+    
+    if (line.node == '--') {
+      // advace time
+      time = line.data;
+      payload[time] = {};
+      
+      console.log(time);
+    } else {
+      
+      var variable = {"type":line.type, "data":line.data};
+      var p = payload[time];    // p is a time slice
+            
+      if (p[line.node] == null)
+        p[line.node] = [];
+      
+      p[line.node].push(variable);
+      
+    }
   });
     
 });
@@ -151,12 +166,13 @@ function update(source) {
                 .duration(200)		
                 .style("opacity", .9);		
             div.html(function() {
-                        var ret = " ";
-                        if (payload[d.name] == null)
+                        var p = payload[1];
+                        if (p[d.name] == null)
                           return "empty";
-                        payload[d.name].forEach(function(element) {
-                        ret = ret + element.type + ": " + element.data + ",\n ";
-                      });
+                        var ret = " ";
+                        p[d.name].forEach(function(element) {
+                          ret = ret + element.type + " = " + element.data + "<br> ";
+                        });
                       return ret; })	
                 .style("left", (d3.event.pageX) + "px")		
                 .style("top", (d3.event.pageY - 28) + "px");	
@@ -190,37 +206,11 @@ function update(source) {
 // Create Event Handlers for mouse
 function handleMouseOver(d, i) {  // Add interactivity
 
-  console.log(d);
-
-  // Use D3 to select element, change color and size
-  d3.select(this).attr({
-    fill: "orange"
-  });
-
-  // Specify where to put label of text
-  svg.append("text").attr({
-      id: "#t-" + d.name, // Create an id for text so we can select it later for removing on mouseout
-      x: d.x, y: d.y
-    })
-    .text(function() {
-      console.log("print text "+d + " " + payload[d.name]);
-      var ret = "";
-      payload[d.name].forEach(function(element) {
-        ret = ret + ", " + element.type + ": " + element.data;
-      });
-      return ret; 
-    });
              
 }
 
 function handleMouseOut(d, i) {
-  // Use D3 to select element, change color back to normal
-  d3.select(this).attr({
-    fill: "black"
-  });
-
-  // Select text by id and then remove
-  d3.select("#t-" + d.name).remove();  // Remove text location
+  
 }
 
 
