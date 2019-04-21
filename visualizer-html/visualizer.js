@@ -92,7 +92,6 @@ d3.csv("nodedata.csv", function(error,data) {
 });
 
 
-
 function update(source, time_shown) {
 
   console.log("Updating with time: "+ time_shown);
@@ -171,19 +170,13 @@ function update(source, time_shown) {
 
 
 function render_dropdown (keys) {
-
-  console.log("inside dropdown " + keys);
+  console.log("DEBUG:: Inside dropdown " + keys);
 
   node = document.getElementById("dropdown");
-
   keys.forEach(function(d) {
     console.log("<option onclick=\"update(root_global,"+d+")>"+d+"</option>");
-    //node.insertAdjacentHTML("beforeend","<option>"+d+"</option>")
     node.insertAdjacentHTML("beforeend","<option onclick=\"update(root_global,"+d+")\">"+d+"</option>");
   });
-console.log("lmao");
-
-
 
 }
 /*
