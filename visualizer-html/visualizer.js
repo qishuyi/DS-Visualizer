@@ -44,15 +44,20 @@ d3.csv("treedata.csv", function(error, data) {
 
   // *********** Convert flat data into a nice tree ***************
   // create a name: node map
-  var dataMap = data_byTime[1].reduce(function(map, node) {
-    map[node.name] = node;
-    return map;
-  }, {});
+  var dataMap = [];
+  
+  data_byTime.forEach(function(data_timeSlice, i) {
+      dataMap[i] = data_timeSlice.reduce(function(map, node) {
+                                      map[node.name] = node;
+                                      return map;
+    }, {});
+  });
 
-  console.log("dataMap:", dataMap);
+  console.log("DEBUG::: dataMap:", dataMap);
 
   // create the tree array
   var treeData = [];
+  
   data_byTime[1].forEach(function(node) {
     // add to parent
     var parent = dataMap[node.parent];
