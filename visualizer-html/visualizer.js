@@ -27,6 +27,9 @@ var payload = [];
 var root_global;
 var data_byTime = [];
 
+  // create the tree array
+  var treeData = [];
+
 // load the external data
 d3.csv("treedata.csv", function(error, data) {
 
@@ -55,26 +58,27 @@ d3.csv("treedata.csv", function(error, data) {
 
   console.log("DEBUG::: dataMap:", dataMap);
 
-  // create the tree array
-  var treeData = [];
   
-  data_byTime[1].forEach(function(node) {
-    // add to parent
-    var parent = dataMap[node.parent];
-    if (parent) {
-      // create child array if it doesn't exist
-      (parent.children || (parent.children = []))
-        // add node to child array
-        .push(node);
-    } else {
-      // parent is null or missing
-      treeData.push(node);
-    }
+  data_byTime.forEach(function(data_timeSlice, i) {
+    treeData[i] = [];
+    data_timeSlice.forEach(function(node) {
+      // add to parent
+      var parent = dataMap[i][node.parent];
+      if (parent) {
+        // create child array if it doesn't exist
+        (parent.children || (parent.children = []))
+          // add node to child array
+          .push(node);
+      } else {
+        // parent is null or missing
+        treeData[i].push(node);
+      }
+    });
   });
 
-  console.log(treeData);
+  console.log("DEBUG::: tree data, " + treeData);
 
-  root = treeData[0];
+  root = treeData[1][0];
   root_global = root;
 
   update(root, 1);
@@ -111,6 +115,7 @@ d3.csv("nodedata.csv", function(error,data) {
 
 
 function update(source, time_shown) {
+  root = treeData[time_shown][0];
 
   console.log("Updating with time: "+ time_shown);
 
