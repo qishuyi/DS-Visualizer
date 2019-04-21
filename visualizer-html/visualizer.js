@@ -23,17 +23,17 @@ var div = d3.select("body").append("div")
     .attr("class", "tooltip")
     .style("opacity", 0);
 
+// create the tree array
+var treeData = [];
 var payload = [];
 var root_global;
 var data_byTime = [];
-
-  // create the tree array
-  var treeData = [];
+var time_default = 1;
 
 // load the external data
 d3.csv("treedata.csv", function(error, data) {
 
-  console.log(data);
+  console.log("DEBUG::: treedata.csv, " + data);
   var time_current;
   data.forEach(function(link) {
     if (link.name == "--") {
@@ -52,10 +52,8 @@ d3.csv("treedata.csv", function(error, data) {
   data_byTime.forEach(function(data_timeSlice, i) {
       dataMap[i] = data_timeSlice.reduce(function(map, node) {
                                       map[node.name] = node;
-                                      return map;
-    }, {});
+                                      return map; }, {});
   });
-
   console.log("DEBUG::: dataMap:", dataMap);
 
   
@@ -75,38 +73,36 @@ d3.csv("treedata.csv", function(error, data) {
       }
     });
   });
-
   console.log("DEBUG::: tree data, " + treeData);
 
-  root = treeData[1][0];
+  root = treeData[time_default][0];
   root_global = root;
 
-  update(root, 1);
+  update(root, time_default);
 });
 
 
 d3.csv("nodedata.csv", function(error,data) {
-
   var time;
 
+  // Each line rerepsents a variable associated a node, under a timestamp
+  // e.g. --,--,1           where 1 is a timestamp
+  //      unique_address,type-symbol,data
+  //
   data.forEach(function(line) {
-    //console.log("line" + line + " " + line.node + " " + line.type + " " + line.data);
-
     if (line.node == '--') {
-      // advace time
+      // Initialize object to store data associated with each time slice
+      // TODO: Add checking code to warn non-sequential input
       time = line.data;
       payload[time] = {};
 
-      console.log(time);
     } else {
-
-      var variable = {"type":line.type, "data":line.data};
-      var p = payload[time];    // p is a time slice
-
-      if (p[line.node] == null)
+      // Push variable into time slice, where line.node acts as a reference/hash
+      var p = payload[time];    // Remove a layer of abstraction for p, a time slice
+      
+      if (p[line.node] == null) 
         p[line.node] = [];
-
-      p[line.node].push(variable);
+      p[line.node].push({"type":line.type, "data":line.data});
     }
   });
 
@@ -117,7 +113,7 @@ d3.csv("nodedata.csv", function(error,data) {
 function update(source, time_shown) {
   root = treeData[time_shown][0];
 
-  console.log("Updating with time: "+ time_shown);
+  console.log("DEBUG::: Updating visualization with time: "+ time_shown);
 
   // Clear canvas
   svg.selectAll("g.node").remove();
@@ -143,22 +139,11 @@ function update(source, time_shown) {
   nodeEnter.append("circle")
 	  .attr("r", 10)
 	  .style("fill", "#fff")
-    // ADDED
-    //.on("mouseover", handleMouseOver)
-    //.on("mouseout", handleMouseOut);
     .on("mouseover", function(d) {
             div.transition()
                 .duration(200)
                 .style("opacity", .9);
-            div.html(function() {
-                        var p = payload[time_shown];
-                        if (p[d.name] == null)
-                          return "empty";
-                        var ret = " ";
-                        p[d.name].forEach(function(element) {
-                          ret = ret + element.type + " = " + element.data + "<br> ";
-                        });
-                      return ret; })
+            div.html(print_struct_content(d,i,time_shown))
                 .style("left", (d3.event.pageX) + "px")
                 .style("top", (d3.event.pageY - 28) + "px");
             })
@@ -193,29 +178,32 @@ function update(source, time_shown) {
 
 
 function render_dropdown (keys) {
-  console.log("DEBUG:: Inside dropdown " + keys);
-
+  console.log("DEBUG::: Inside dropdown " + keys);
   node = document.getElementById("dropdown");
+  
   keys.forEach(function(d) {
-    console.log("<option onclick=\"update(root_global,"+d+")>"+d+"</option>");
+    console.log("DEBUG::: <option onclick=\"update(root_global,"+d+")>"+d+"</option>");
     node.insertAdjacentHTML("beforeend","<option onclick=\"update(root_global,"+d+")\">"+d+"</option>");
   });
 
 }
-/*
-var dropdownChange = function() {
-    var time_new = d3.select(this).property('value');
-    updateBars(root_global, time_new);
-};
 
-var dropdown = d3.select("#vis-container")
-                    .insert("select", "svg")
-                    .on("change", dropdownChange);
+function print_struct_content (d, i, time_shown) {
+  console.log("DEBUG::: Inside print_struct_content ");
+  var p = payload[time_shown];
+  
+  if (p[d.name] == null)
+    return "empty";
+    
+  var ret = " ";
+  p[d.name].forEach(function(element) {
+    ret = ret + element.type + " = " + element.data + "<br> ";
+  });
+  
+  return ret; 
+}
 
-dropdown.selectAll("option")
-    .data(function() {
-      return Object.keys(payload); })
-  .enter().append("option")
-    .attr("value", function (d) { return d; })
-    .text(function (d) { return d; });
-*/
+
+
+
+
