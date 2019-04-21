@@ -25,13 +25,26 @@ var div = d3.select("body").append("div")
 
 var payload = [];
 var root_global;
+var data_byTime = [];
 
 // load the external data
 d3.csv("treedata.csv", function(error, data) {
 
+  console.log(data);
+  var time_current;
+  data.forEach(function(link) {
+    if (link.name == "--") {
+      time_current = link.parent;
+      data_byTime[time_current] = [];
+    } else {
+      console.log("DEBUG::: " + time_current + " " + link);
+      data_byTime[time_current].push(link);
+    }
+  });
+
   // *********** Convert flat data into a nice tree ***************
   // create a name: node map
-  var dataMap = data.reduce(function(map, node) {
+  var dataMap = data_byTime[1].reduce(function(map, node) {
     map[node.name] = node;
     return map;
   }, {});
@@ -40,7 +53,7 @@ d3.csv("treedata.csv", function(error, data) {
 
   // create the tree array
   var treeData = [];
-  data.forEach(function(node) {
+  data_byTime[1].forEach(function(node) {
     // add to parent
     var parent = dataMap[node.parent];
     if (parent) {
@@ -59,7 +72,7 @@ d3.csv("treedata.csv", function(error, data) {
   root = treeData[0];
   root_global = root;
 
-  update(root, 2);
+  update(root, 1);
 });
 
 
