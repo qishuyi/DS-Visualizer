@@ -1,31 +1,31 @@
 #include <stdio.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/types.h> 
+#include <errno.h>
 
-//shm_open, shm_creat
+#define PAGESIZE 0x1000LL
 
-#define PAGE_SIZE 0x1000LL;
+int register_head(){
+  int oflags = O_RDWR;
+  mode_t mode = S_IRWXU | S_IRWXG;
 
-// Allign address with the start of a page
-#define PG_START(_v) ((_v) & ~(unsigned long)(PAGE_SIZE-1))
-
-unsigned long head_addr = -1;
-
-void* register_head(size_t size){
-  int prot_options = PROT_EXEC | PROT_READ | PROT_WRITE;
-  int flags = MAP_FIXED | MAP_SHARED;
-
-  // Reserve a page to be overwritten by MAP_FIXED
-  unsigned long *reserved_space;
-  reserved_space = mmap(0, PAGE_SIZE*2, prot_options, 0, -1, 0);
-
-  // Mmap the head
-  void* head = mmap((void*)PG_START(reserved_space), size, prot_options, flags, -1, 0);
-  if (head == MAP_FAILED){
-    perror("mmap failed");
+  // Create a shared memoy region with the name "head"
+  int fd = shm_open("/newregion", oflags, mode);
+  if (fd == -1) {
+    perror("shm_open failed in tracee");
     exit(2);
   }
 
-  head_addr = (unsigned long)head;
+  // Truncate the shared memory region to the given size
+  if (ftruncate(fd, PAGESIZE)  == -1) {
+    perror("ftruncate failed");
+    exit(2);
+  }
 
-  return head;
+
+
+  return fd;
 }
