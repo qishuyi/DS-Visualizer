@@ -5,10 +5,14 @@
 #include <unistd.h>
 #include <sys/types.h> 
 #include <errno.h>
+#include <stdint.h>
 
 #define PAGESIZE 0x1000LL
 
-int register_head(){
+/*
+ * This function will be called 
+ */
+int register_head(void* addr){
   int oflags = O_RDWR;
   mode_t mode = S_IRWXU | S_IRWXG;
 
@@ -25,7 +29,13 @@ int register_head(){
     exit(2);
   }
 
+  /*if (write(fd, addr, sizeof(addr)) != sizeof(addr)) {
+    perror("Write failed or incomplete");
+    exit(2);
+  }*/
 
+  //intptr_t dest = (intptr_t)mmap(0, PAGESIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+  //*dest = (intptr_t)addr;
 
   return fd;
 }

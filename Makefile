@@ -1,10 +1,10 @@
-CXX	:= clang
-CXXFLAGS	:=
+CXX	:= clang++
+CXXFLAGS	:= -std=c++11
 
 all: visualizer
 
 clean:
 	rm -rf visualizer
 
-visualizer: ptrace.c
-	$(CXX) $(CXXFLAGS) -o $@ $^ -lrt
+visualizer: ptrace.cc
+	$(CXX) $(CXXFLAGS) -o $@ $^ -lrt -pthread
