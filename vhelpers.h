@@ -9,33 +9,14 @@
 
 #define PAGESIZE 0x1000LL
 
-/*
- * This function will be called 
- */
-int register_head(void* addr){
-  int oflags = O_RDWR;
-  mode_t mode = S_IRWXU | S_IRWXG;
+const char* myfifo = "myfifo";
+const char* request_head_msg = "hello";
+const char* closing_msg = "done";
 
-  // Create a shared memoy region with the name "head"
-  int fd = shm_open("/newregion", oflags, mode);
-  if (fd == -1) {
-    perror("shm_open failed in tracee");
-    exit(2);
-  }
+typedef struct pipe_args {
+  int is_addr;
+  void* addr;
+  char msg[50];
+  size_t ptr_size;
+}pipe_args_t;
 
-  // Truncate the shared memory region to the given size
-  if (ftruncate(fd, PAGESIZE)  == -1) {
-    perror("ftruncate failed");
-    exit(2);
-  }
-
-  /*if (write(fd, addr, sizeof(addr)) != sizeof(addr)) {
-    perror("Write failed or incomplete");
-    exit(2);
-  }*/
-
-  //intptr_t dest = (intptr_t)mmap(0, PAGESIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-  //*dest = (intptr_t)addr;
-
-  return fd;
-}

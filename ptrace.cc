@@ -38,41 +38,46 @@ mode_t mode = S_IRWXU | S_IRWXG;
 // A buffer of 0's
 char* zerobuf[PAGESIZE] = {0};
 
-const char* myfifo = "myfifo";
+bool running = true;
 
 std::unordered_map<void*, size_t> ptr_sizes;
 
 void* gethead_thread_fn(void* h) {
-  printf("In the get head thread\n");
-  // Send message to request the head address
+  // Create a fifo to communicate head address
   int fd = open(myfifo, O_WRONLY);
   if (fd == -1) {
     perror("open failed in gethead_thread before writing");
     exit(2);
   }
-  const char* msg = "hello";
-  int bytes_written = write(fd, msg, sizeof(msg));
-  if (bytes_written < 0) {
+
+  // Send a head request to the tracee
+  pipe_args_t args;
+  args.is_addr = 0;
+  strcpy(args.msg, request_head_msg);
+
+  if (write(fd, &args, sizeof(args)) < 0) {
     perror("write failed in gethead_thread_fn");
     exit(2);
   }
+  
   close(fd);
 
-  printf("Written hello to the pipe\n");
   // Get head address from the pipe
   fd = open(myfifo, O_RDONLY);
   if (fd == -1) {
     perror("open failed in gethead_thread");
     exit(2);
   }
-  void* addr;
-  int bytes_read = read(fd, &addr, sizeof(void*));
-  if (bytes_read < 0) {
+
+  pipe_args_t answer;
+
+  if (read(fd, &answer, sizeof(pipe_args_t)) != sizeof(pipe_args_t)) {
     perror("read failed in gethead_thread_fn");
     exit(2);
   }
-  head = addr;
-  printf("Read %d bytes, Address is %p\n", bytes_read, addr);
+
+  head = answer.addr;
+  
   close(fd);
 
   return NULL;
@@ -80,38 +85,67 @@ void* gethead_thread_fn(void* h) {
 
 // The thread will open a file and send requests to get a pointer address or get the size of a pointer
 void* getsize_thread_fn(void* s) {
-  thread_args_t* args = static_cast<thread_args_t*>(s);
+  int fd;
+  //while (running) {
+    printf("In the getsize thread\n");
+    thread_args_t* args = static_cast<thread_args_t*>(s);
 
-  void* addr = args->addr;
-	
-  // Write the pointer address to the pipe
-  int fd = open(myfifo, O_WRONLY);
-  if (fd == -1) {
-    perror("open failed in getsize_thread_fn before writing");
-    exit(2);
-  }
-  int bytes_written = write(fd, &addr, sizeof(void*));
-  if (bytes_written < 0) {
-    perror("Write failed in getsize_thread_fn");
-    exit(2);
-  }
-  close(fd);
+    void* addr = args->addr;
+   
+    // Write the pointer address to the pipe
+    fd = open(myfifo, O_WRONLY);
+    if (fd == -1) {
+      perror("open failed in getsize_thread_fn before writing");
+      exit(2);
+    }
 
-  // Get the size of the pointer/struct from the pipe
-  size_t ptr_size;
-  fd = open(myfifo, O_RDONLY);
+    printf("Opened fifo in getsize\n");
+    struct pipe_args pa {
+      .is_addr = 1,
+      .addr = addr
+    };
+
+    if (write(fd, &pa, sizeof(pa)) != sizeof(pa)) {
+      perror("Write failed in getsize_thread_fn");
+      exit(2);
+    }
+
+    close(fd);
+    
+    printf("Written address to the pipe: %p\n", addr);
+
+    // Get the size of the pointer/struct from the pipe
+    pipe_args_t answer;
+    
+    fd = open(myfifo, O_RDONLY);
+    if (fd == -1) {
+      perror("open failed in getsize_thread_fn before reading");
+      exit(2);
+    }
+    
+    if (read(fd, &answer, sizeof(answer)) != sizeof(answer)) {
+      perror("Read failed in getsize_thread_fn");
+      exit(2);
+    }
+    
+    printf("In the getsize thread: pointer is at %p, size is %zu\n", addr, answer.ptr_size);
+    
+    ptr_sizes[addr] = answer.ptr_size;
+
+    close(fd);
+  //}
+  
+  fd = open(myfifo, O_WRONLY);
   if (fd == -1) {
-    perror("open failed in getsize_thread_fn before reading");
+    perror("open failed in getsize_thread_fn when closing");
     exit(2);
   }
-  int bytes_read = read(fd, &ptr_size, sizeof(size_t));
-  if (bytes_read < 0) {
-    perror("Read failed in getsize_thread_fn");
+  
+  if (write(fd, closing_msg, sizeof(closing_msg)) < 0) {
+    perror("write failed in getsize_thread_fn when closing");
     exit(2);
   }
-  printf("In the getsize thread: pointer is at %p, size is %lu\n", addr, ptr_size);
-  ptr_sizes[addr] = ptr_size;
-  printf("Added the size to map\n");
+  
   close(fd);
 
   return NULL;
@@ -154,32 +188,6 @@ int main(int argc, char** argv) {
 
     // We are now attached to the child process
     printf("Attached!\n");
-
-    // Create a shared memory region to be used by the tracee program later
-    /*int fd = shm_open("/newregion", O_RDWR | O_CREAT, mode);
-    if (fd == -1) {
-      perror("shm_open failed");
-      exit(2); 
-    }
-    printf("mmaped a memory region\n");
-    // ftruncate the shared region to size of a page
-    if (ftruncate(fd, PAGESIZE) == -1) {
-      perror("ftruncate failed");
-      exit(2);
-    }
-    printf("Truncated it to the good size\n");
-    // Zero out the shared memory region
-    void* head_region = mmap(0, PAGESIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (head_region == MAP_FAILED) {
-      perror("mmap failed");
-      exit(2);
-    }
-    printf("Mmaped the fd at %p\n", head_region);
-    memset(head_region, 0, PAGESIZE);
-    printf("-1 the region\n");
-    // TODO: Not sure if we should close the fd or unmap the region
-    close(fd);*/
-    //munmap(head_region, PAGESIZE);
 
     // Create a pipe to communicate with the tracee
     if (mkfifo(myfifo, S_IRWXU) == -1) {
@@ -239,25 +247,26 @@ int main(int argc, char** argv) {
         // If the signal was a SIGTRAP, we stopped at a single step
         if (last_signal == SIGTRAP) {
 	  if (head) {
+	    pthread_join(get_head_thread, NULL);
+            // Ask the tracee for the size of the allocated head
+            pthread_t pipe_thread;
+            thread_args_t* args = (thread_args_t*)malloc(sizeof(thread_args_t));
+            args->addr = head;
+            if (pthread_create(&pipe_thread, NULL, getsize_thread_fn, args) != 0) {
+              perror("The second pthread_create failed");
+              exit(2);
+            }
+	    running = false;
+            pthread_join(pipe_thread, NULL);
+	    printf("Head is at %p, size of head is %lu\n", head, ptr_sizes[head]);
+
   	    long data_read = ptrace(PTRACE_PEEKDATA, child_pid, head, NULL);
   	    if (data_read == -1) {
    	      perror("ptrace peekdata failed in gethead thread");
     	      exit(2);
   	    }
-  	    printf("data read: %ld\n", data_read);
-	  }
-          // Ask the tracee for the size of the allocated head
-          pthread_t pipe_thread;
-          thread_args_t* args = (thread_args_t*)malloc(sizeof(thread_args_t));
-          args->addr = static_cast<void*>(head);
-          if (pthread_create(&pipe_thread, NULL, getsize_thread_fn, &args) != 0) {
-            perror("The second pthread_create failed");
-            exit(2);
-          }
-          pthread_join(pipe_thread, NULL);
-	  printf("Head is at %p, size of head is %lu\n", head, ptr_sizes[head]);
-
-	  //void* addr = head_region;
+  	    //printf("data read: %ld\n", data_read);
+	  }	  //void* addr = head_region;
 	  //if (memcmp((void*)head, (void*)zerobuf, sizeof(head)) == 0) {
 	    //last_signal = 0;
 	    //continue;
