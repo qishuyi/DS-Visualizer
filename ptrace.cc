@@ -30,6 +30,9 @@ typedef struct thread_args {
 // Head address
 void* head = NULL;
 
+// A boolean to indicate whether we will continue tracing the data structure or not
+bool running = true;
+
 // Mode
 mode_t mode = S_IRWXU | S_IRWXG;
 
@@ -94,90 +97,114 @@ void* getsize_thread_fn(void* s) {
   thread_args_t* args = static_cast<thread_args_t*>(s);
   void* addr = args->addr;
 
-  // Create a file descriptor to communicate with tracee
-  int fd; 
-
-  if (args->closing == 1) {
-   // Open a file descriptor for writing
-    fd = open(myfifo, O_WRONLY);
-    if (fd == -1) {
-      perror("open failed in getsize_thread_fn when closing");
-      exit(2);
-    }
-
-    // Write the closing message to pipe 
-    if (write(fd, closing_msg, sizeof(closing_msg)) != sizeof(closing_msg)) {
-      perror("write failed in getsize_thread_fn when closing");
-      exit(2);
-    }
-
-    printf("Written closing msg to pipe\n");
-
-    close(fd);
-  } else {
-    // Write the pointer address to the pipe
-    fd = open(myfifo, O_WRONLY);
-    if (fd == -1) {
-      perror("open failed in getsize_thread_fn before writing");
-      exit(2);
-    }
-
-    printf("Opened fifo in getsize\n");
-
-    // Define a struct as pipe argument
-    struct pipe_args pa {
-      .is_addr = 1,
-      .addr = addr
-    };
-
-    // Send the struct over pipe
-    if (write(fd, &pa, sizeof(pa)) != sizeof(pa)) {
-      perror("Write failed in getsize_thread_fn");
-      exit(2);
-    }
-
-    close(fd);
-
-    printf("Written address to the pipe: %p\n", addr);
-
-    // Open another file descriptor for reading
-    fd = open(myfifo, O_RDONLY);
-    if (fd == -1) {
-      perror("open failed in getsize_thread_fn before reading");
-      exit(2);
-    }
-
-    // Read a struct from pipe
-    pipe_args_t answer;
-    if (read(fd, &answer, sizeof(answer)) != sizeof(answer)) {
-      perror("Read failed in getsize_thread_fn");
-      exit(2);
-    }
-
-    printf("In the getsize thread: pointer is at %p, size is %zu\n", addr, answer.ptr_size);
-
-    // Add the malloced size to the global mapping
-    ptr_sizes[addr] = answer.ptr_size;
-
-    close(fd);
+  // Write the pointer address to the pipe
+  int fd = open(myfifo, O_WRONLY);
+  if (fd == -1) {
+    perror("open failed in getsize_thread_fn before writing");
+    exit(2);
   }
 
-   return NULL;
+  printf("Opened fifo in getsize\n");
+
+  // Define a struct as pipe argument
+  struct pipe_args pa {
+    .is_addr = 1,
+      .addr = addr
+  };
+
+  // Send the struct over pipe
+  if (write(fd, &pa, sizeof(pa)) != sizeof(pa)) {
+    perror("Write failed in getsize_thread_fn");
+    exit(2);
+  }
+
+  close(fd);
+
+  printf("Written address to the pipe: %p\n", addr);
+
+  // Open another file descriptor for reading
+  fd = open(myfifo, O_RDONLY);
+  if (fd == -1) {
+    perror("open failed in getsize_thread_fn before reading");
+    exit(2);
+  }
+
+  // Read a struct from pipe
+  pipe_args_t answer;
+  if (read(fd, &answer, sizeof(answer)) != sizeof(answer)) {
+    perror("Read failed in getsize_thread_fn");
+    exit(2);
+  }
+
+  printf("In the getsize thread: pointer is at %p, size is %zu\n", addr, answer.ptr_size);
+
+  // Add the malloced size to the global mapping
+  ptr_sizes[addr] = answer.ptr_size;
+
+  close(fd);
+
+  return NULL;
 }
 
-void inspect_memory(int child_pid) {
-  if (head) {
-    // Ask the tracee for the size of the allocated head
+void* closing_thread_fn(void* args) {
+  // Open a file descriptor for writing
+  int fd = open(myfifo, O_WRONLY);
+  if (fd == -1) {
+    perror("open failed in closing_thread_fn");
+    exit(2);
+  }
+
+  // Create a struct with closing message to send over pipe
+  pipe_args_t pa;
+  pa.is_addr = 0;
+  strcpy(pa.msg, closing_msg);
+
+  // Write the message to pipe
+  if (write(fd, &pa, sizeof(pa)) != sizeof(pa)) {
+    perror("write failed in closing_thread_fn");
+    exit(2);
+  } 
+
+  close(fd);
+
+  return NULL;
+}
+
+void inspect_memory(int child_pid, void* addr) {
+  if (addr) {
+    // Initialize thread arguments
     pthread_t pipe_thread;
-    thread_args_t* args = (thread_args_t*)malloc(sizeof(thread_args_t));
-    args->addr = head;
-    if (pthread_create(&pipe_thread, NULL, getsize_thread_fn, args) != 0) {
+    thread_args_t args;
+    args.addr = addr;
+
+    // Create a thread to ask the tracee for the size of the allocated head
+    if (pthread_create(&pipe_thread, NULL, getsize_thread_fn, &args) != 0) {
       perror("The second pthread_create failed");
       exit(2);
     }
-    running = false;
-    pthread_join(pipe_thread, NULL);
-    printf("Head is at %p, size of head is %lu\n", head, ptr_sizes[head]);
+
+    /*long data_read = ptrace(PTRACE_PEEKDATA, child_pid, addr, NULL);
+      if (data_read == -1) {
+      printf("Address (%p) does not contain a pointer.\n", addr);
+      return;
+      }else {*/
+    // Get the size of the mallocaed memory associated with the given pointer
+    size_t ptr_size = ptr_sizes[addr];
+
+    // Step through the memory region 8 bytes at a time
+    for (int i = 0; i < ptr_size / 8; i++) {
+      void* next_addr = addr + 8 * i;
+
+      // Peek data at the given address
+      data_read = ptrace(PTRACE_PEEKDATA, child_pid, next_addr, NULL);
+      if (data_read == -1) {
+        printf("address (%p) contains a value\n", next_addr);
+      }else {
+        inspect_memory(child_pid, next_addr);
+      }
+    }
+    //}
+
   }
 }
 
@@ -281,12 +308,7 @@ int main(int argc, char** argv) {
         // If the signal was a SIGTRAP, we stopped at a single step
         if (last_signal == SIGTRAP) {
           // Inspect memory from head
-          inspect_memory();
-          /*long data_read = ptrace(PTRACE_PEEKDATA, child_pid, head, NULL);
-            if (data_read == -1) {
-            perror("ptrace peekdata failed in gethead thread");
-            exit(2);
-            }*/
+          inspect_memory();/
           //printf("data read: %ld\n", data_read);
         }	  //void* addr = head_region;
         //if (memcmp((void*)head, (void*)zerobuf, sizeof(head)) == 0) {
