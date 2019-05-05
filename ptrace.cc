@@ -23,52 +23,51 @@ typedef struct node {
 }node_t;
 
 typedef struct thread_args {
-  //char* file;
+  int closing;
   void* addr;
 }thread_args_t;
 
 // Head address
 void* head = NULL;
 
-pid_t tracee_pid;
-
 // Mode
 mode_t mode = S_IRWXU | S_IRWXG;
 
-// A buffer of 0's
-char* zerobuf[PAGESIZE] = {0};
-
-bool running = true;
-
+// A mapping from pointer address to its size
 std::unordered_map<void*, size_t> ptr_sizes;
 
+/*
+ * Function for getting the head address from tracee
+ */
 void* gethead_thread_fn(void* h) {
-  // Create a fifo to communicate head address
+  // Open a file descriptor for writing
   int fd = open(myfifo, O_WRONLY);
   if (fd == -1) {
     perror("open failed in gethead_thread before writing");
     exit(2);
   }
 
-  // Send a head request to the tracee
+  // Define a struct to send over pipe
   pipe_args_t args;
   args.is_addr = 0;
   strcpy(args.msg, request_head_msg);
 
+  // Send the struct to request for address of the head of data structure
   if (write(fd, &args, sizeof(args)) < 0) {
     perror("write failed in gethead_thread_fn");
     exit(2);
   }
-  
+
   close(fd);
 
-  // Get head address from the pipe
+  // Open another file descriptor for reading
   fd = open(myfifo, O_RDONLY);
   if (fd == -1) {
     perror("open failed in gethead_thread");
     exit(2);
   }
 
+  // Read a struct from pipe
   pipe_args_t answer;
 
   if (read(fd, &answer, sizeof(pipe_args_t)) != sizeof(pipe_args_t)) {
@@ -76,22 +75,46 @@ void* gethead_thread_fn(void* h) {
     exit(2);
   }
 
+  // Get the head address from the struct
   head = answer.addr;
-  
+
   close(fd);
+
+  // Exit this thread because we only need this function once
+  pthread_exit();
 
   return NULL;
 }
 
-// The thread will open a file and send requests to get a pointer address or get the size of a pointer
+/*
+ * The thread function to get the malloced size of a pointer 
+ */
 void* getsize_thread_fn(void* s) {
-  int fd;
-  //while (running) {
-    printf("In the getsize thread\n");
-    thread_args_t* args = static_cast<thread_args_t*>(s);
+  // Unpack thread arguments
+  thread_args_t* args = static_cast<thread_args_t*>(s);
+  void* addr = args->addr;
 
-    void* addr = args->addr;
-   
+  // Create a file descriptor to communicate with tracee
+  int fd; 
+
+  if (args->closing == 1) {
+   // Open a file descriptor for writing
+    fd = open(myfifo, O_WRONLY);
+    if (fd == -1) {
+      perror("open failed in getsize_thread_fn when closing");
+      exit(2);
+    }
+
+    // Write the closing message to pipe 
+    if (write(fd, closing_msg, sizeof(closing_msg)) != sizeof(closing_msg)) {
+      perror("write failed in getsize_thread_fn when closing");
+      exit(2);
+    }
+
+    printf("Written closing msg to pipe\n");
+
+    close(fd);
+  } else {
     // Write the pointer address to the pipe
     fd = open(myfifo, O_WRONLY);
     if (fd == -1) {
@@ -100,55 +123,62 @@ void* getsize_thread_fn(void* s) {
     }
 
     printf("Opened fifo in getsize\n");
+
+    // Define a struct as pipe argument
     struct pipe_args pa {
       .is_addr = 1,
       .addr = addr
     };
 
+    // Send the struct over pipe
     if (write(fd, &pa, sizeof(pa)) != sizeof(pa)) {
       perror("Write failed in getsize_thread_fn");
       exit(2);
     }
 
     close(fd);
-    
+
     printf("Written address to the pipe: %p\n", addr);
 
-    // Get the size of the pointer/struct from the pipe
-    pipe_args_t answer;
-    
+    // Open another file descriptor for reading
     fd = open(myfifo, O_RDONLY);
     if (fd == -1) {
       perror("open failed in getsize_thread_fn before reading");
       exit(2);
     }
-    
+
+    // Read a struct from pipe
+    pipe_args_t answer;
     if (read(fd, &answer, sizeof(answer)) != sizeof(answer)) {
       perror("Read failed in getsize_thread_fn");
       exit(2);
     }
-    
+
     printf("In the getsize thread: pointer is at %p, size is %zu\n", addr, answer.ptr_size);
-    
+
+    // Add the malloced size to the global mapping
     ptr_sizes[addr] = answer.ptr_size;
 
     close(fd);
-  //}
-  
-  fd = open(myfifo, O_WRONLY);
-  if (fd == -1) {
-    perror("open failed in getsize_thread_fn when closing");
-    exit(2);
   }
-  
-  if (write(fd, closing_msg, sizeof(closing_msg)) < 0) {
-    perror("write failed in getsize_thread_fn when closing");
-    exit(2);
-  }
-  
-  close(fd);
 
-  return NULL;
+   return NULL;
+}
+
+void inspect_memory(int child_pid) {
+  if (head) {
+    // Ask the tracee for the size of the allocated head
+    pthread_t pipe_thread;
+    thread_args_t* args = (thread_args_t*)malloc(sizeof(thread_args_t));
+    args->addr = head;
+    if (pthread_create(&pipe_thread, NULL, getsize_thread_fn, args) != 0) {
+      perror("The second pthread_create failed");
+      exit(2);
+    }
+    running = false;
+    pthread_join(pipe_thread, NULL);
+    printf("Head is at %p, size of head is %lu\n", head, ptr_sizes[head]);
+  }
 }
 
 int main(int argc, char** argv) {
@@ -196,17 +226,18 @@ int main(int argc, char** argv) {
     }
 
     printf("Created the fifo\n");
-    // Get the head address from the tracee
+
+    // Start a thread to request head address from tracee
     pthread_t get_head_thread;
     if (pthread_create(&get_head_thread, NULL, gethead_thread_fn, NULL) != 0) {
       perror("pthread_create failed");
       exit(2);
     }
-   
+
     // Continue the process, delivering the last signal we received (if any)
     if(ptrace(PTRACE_CONT, child_pid, NULL, 0) == -1) {
-        perror("ptrace CONT failed");
-        exit(2);
+      perror("ptrace CONT failed");
+      exit(2);
     }
 
     // Wait for the child to stop again
@@ -218,6 +249,7 @@ int main(int argc, char** argv) {
     // Now repeatedly resume and trace the program
     bool running = true;
     int last_signal = 0;
+    int counter = 0;
     while(running) {
       // Continue the process, delivering the last signal we received (if any)
       if(ptrace(PTRACE_SINGLESTEP, child_pid, NULL, last_signal) == -1) {
@@ -234,6 +266,8 @@ int main(int argc, char** argv) {
         exit(2);
       }
 
+      if(++counter % 1000 != 0) continue;
+
       if(WIFEXITED(status)) {
         printf("Child exited with status %d\n", WEXITSTATUS(status));
         running = false;
@@ -246,42 +280,30 @@ int main(int argc, char** argv) {
 
         // If the signal was a SIGTRAP, we stopped at a single step
         if (last_signal == SIGTRAP) {
-	  if (head) {
-	    pthread_join(get_head_thread, NULL);
-            // Ask the tracee for the size of the allocated head
-            pthread_t pipe_thread;
-            thread_args_t* args = (thread_args_t*)malloc(sizeof(thread_args_t));
-            args->addr = head;
-            if (pthread_create(&pipe_thread, NULL, getsize_thread_fn, args) != 0) {
-              perror("The second pthread_create failed");
-              exit(2);
-            }
-	    running = false;
-            pthread_join(pipe_thread, NULL);
-	    printf("Head is at %p, size of head is %lu\n", head, ptr_sizes[head]);
+          // Inspect memory from head
+          inspect_memory();
+          /*long data_read = ptrace(PTRACE_PEEKDATA, child_pid, head, NULL);
+            if (data_read == -1) {
+            perror("ptrace peekdata failed in gethead thread");
+            exit(2);
+            }*/
+          //printf("data read: %ld\n", data_read);
+        }	  //void* addr = head_region;
+        //if (memcmp((void*)head, (void*)zerobuf, sizeof(head)) == 0) {
+        //last_signal = 0;
+        //continue;
+        //}
+        //int val = *((int*)(head));
+        //node_t* next = head+sizeof(int);
+        //printf("Head has been filled with value %p\n", addr);
+        //printf("Next address is %p\n", next);
 
-  	    long data_read = ptrace(PTRACE_PEEKDATA, child_pid, head, NULL);
-  	    if (data_read == -1) {
-   	      perror("ptrace peekdata failed in gethead thread");
-    	      exit(2);
-  	    }
-  	    //printf("data read: %ld\n", data_read);
-	  }	  //void* addr = head_region;
-	  //if (memcmp((void*)head, (void*)zerobuf, sizeof(head)) == 0) {
-	    //last_signal = 0;
-	    //continue;
-	  //}
-	  //int val = *((int*)(head));
-	  //node_t* next = head+sizeof(int);
-	  //printf("Head has been filled with value %p\n", addr);
-	  //printf("Next address is %p\n", next);
-
-          last_signal = 0;
-        }
+        last_signal = 0;
       }
     }
-    
-    return 0;
   }
+
+  return 0;
+}
 }
 
