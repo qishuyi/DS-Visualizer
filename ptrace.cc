@@ -84,7 +84,8 @@ void* gethead_thread_fn(void* h) {
   close(fd);
 
   // Exit this thread because we only need this function once
-  pthread_exit();
+  int ret = 0;
+  pthread_exit(&ret);
 
   return NULL;
 }
@@ -109,7 +110,7 @@ void* getsize_thread_fn(void* s) {
   // Define a struct as pipe argument
   struct pipe_args pa {
     .is_addr = 1,
-      .addr = addr
+    .addr = addr
   };
 
   // Send the struct over pipe
@@ -171,13 +172,14 @@ void* closing_thread_fn(void* args) {
 }
 
 void inspect_memory(int child_pid, void* addr) {
+  // If the address is NULL, do nothing.
   if (addr) {
     // Initialize thread arguments
     pthread_t pipe_thread;
     thread_args_t args;
     args.addr = addr;
 
-    // Create a thread to ask the tracee for the size of the allocated head
+    // Create a thread to ask tracee for the malloced size of head
     if (pthread_create(&pipe_thread, NULL, getsize_thread_fn, &args) != 0) {
       perror("The second pthread_create failed");
       exit(2);
@@ -188,23 +190,25 @@ void inspect_memory(int child_pid, void* addr) {
       printf("Address (%p) does not contain a pointer.\n", addr);
       return;
       }else {*/
+
+    pthread_join(pipe_thread, NULL);
     // Get the size of the mallocaed memory associated with the given pointer
     size_t ptr_size = ptr_sizes[addr];
 
     // Step through the memory region 8 bytes at a time
     for (int i = 0; i < ptr_size / 8; i++) {
-      void* next_addr = addr + 8 * i;
+      // Get next address
+      void* next_addr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(addr) + 8 * i);
 
       // Peek data at the given address
-      data_read = ptrace(PTRACE_PEEKDATA, child_pid, next_addr, NULL);
+      long data_read = ptrace(PTRACE_PEEKDATA, child_pid, next_addr, NULL);
       if (data_read == -1) {
+        // If peekdata fails, the address does not refer to a pointer, but a value instead.
         printf("address (%p) contains a value\n", next_addr);
       }else {
         inspect_memory(child_pid, next_addr);
       }
     }
-    //}
-
   }
 }
 
@@ -308,7 +312,7 @@ int main(int argc, char** argv) {
         // If the signal was a SIGTRAP, we stopped at a single step
         if (last_signal == SIGTRAP) {
           // Inspect memory from head
-          inspect_memory();/
+          inspect_memory(child_pid, head);
           //printf("data read: %ld\n", data_read);
         }	  //void* addr = head_region;
         //if (memcmp((void*)head, (void*)zerobuf, sizeof(head)) == 0) {
@@ -327,5 +331,5 @@ int main(int argc, char** argv) {
 
   return 0;
 }
-}
+
 

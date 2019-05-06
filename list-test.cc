@@ -35,9 +35,6 @@ void* thread_fn(void* u) {
 
     pipe_args_t args;
 
-    /*
-    int bytes_read = read(fd, &args, sizeof(args));
-    printf("Read %d bytes\n", bytes_read);*/ 
     if (read(fd, &args, sizeof(args)) != sizeof(args)){
       perror("Read fails in tracee thread_fn");
       exit(2);
@@ -52,18 +49,18 @@ void* thread_fn(void* u) {
       // The tracer sends a hello message
       fd = open(myfifo, O_WRONLY);
       if (fd == -1){
-	perror("Open failed in tracee before writing head");
-	exit(2);
+	      perror("Open failed in tracee before writing head");
+	      exit(2);
       }
 
       struct pipe_args pa = {
-	.is_addr = 1,
-	.addr = head_addr
+	      .is_addr = 1,
+	      .addr = head_addr
       };
 
       if (write(fd, &pa, sizeof(pa)) != sizeof(pa)){
-	perror("Write head failed in tracee");
-	exit(2);
+	      perror("Write head failed in tracee");
+	      exit(2);
       }
       
       printf("In the tracee.\nHead allocated at %p\n", head_addr);
@@ -78,12 +75,12 @@ void* thread_fn(void* u) {
       size_t ptr_size = malloc_usable_size(args.addr);
 
       struct pipe_args pa = {
-	.ptr_size = ptr_size
+	      .ptr_size = ptr_size
       };
 
       if (write(fd, &pa, sizeof(pa)) != sizeof(pa)) {
         perror("Write failed in tracee thread_fn");
-	exit(2);
+	      exit(2);
       }
 
       printf("Pointer %p has size %lu\n", args.addr, ptr_size);
