@@ -17,18 +17,15 @@
 
 #include "vhelpers.h"
 
-typedef struct node {
-  int val;
-  struct node* next;
-}node_t;
-
+// A struct that packs arguments to a thread function
 typedef struct thread_args {
-  int closing;
   void* addr;
 }thread_args_t;
 
 // Head address
 void* head = NULL;
+bool head_set = false;
+
 
 // A boolean to indicate whether we will continue tracing the data structure or not
 bool running = true;
@@ -81,6 +78,8 @@ void* gethead_thread_fn(void* h) {
   // Get the head address from the struct
   head = answer.addr;
 
+  head_set = true;
+
   close(fd);
 
   // Exit this thread because we only need this function once
@@ -105,7 +104,7 @@ void* getsize_thread_fn(void* s) {
     exit(2);
   }
 
-  printf("Opened fifo in getsize\n");
+  // printf("Opened fifo in getsize\n");
 
   // Define a struct as pipe argument
   struct pipe_args pa {
@@ -121,7 +120,7 @@ void* getsize_thread_fn(void* s) {
 
   close(fd);
 
-  printf("Written address to the pipe: %p\n", addr);
+  // printf("Written address to the pipe: %p\n", addr);
 
   // Open another file descriptor for reading
   fd = open(myfifo, O_RDONLY);
@@ -137,7 +136,7 @@ void* getsize_thread_fn(void* s) {
     exit(2);
   }
 
-  printf("In the getsize thread: pointer is at %p, size is %zu\n", addr, answer.ptr_size);
+  // printf("In the getsize thread: pointer is at %p, size is %zu\n", addr, answer.ptr_size);
 
   // Add the malloced size to the global mapping
   ptr_sizes[addr] = answer.ptr_size;
@@ -172,9 +171,27 @@ void* closing_thread_fn(void* args) {
 }
 
 void inspect_memory(int child_pid, void* addr) {
-  // If the address is NULL, do nothing.
-  if (addr) {
-    // Initialize thread arguments
+  // If the head is NULL.
+  if (!head) {
+    printf("Head no longer exists\n");
+    return;
+  }
+
+  // If the address is NULL, 
+  if (!addr) {
+    printf("\tNULL\n");
+    return;
+  }
+
+  // Read data at the given address
+  long data_read = ptrace(PTRACE_PEEKDATA, child_pid, addr, NULL);
+  if (data_read == -1) {
+    // If ptrace peekdata returns -1, it means the address is a value instead of a pointer
+    printf("address (%p) contains a value\n", addr);
+    return;
+  }else {
+    printf("data at address (%p) : %p\n", addr, (void*)data_read);
+
     pthread_t pipe_thread;
     thread_args_t args;
     args.addr = addr;
@@ -185,31 +202,34 @@ void inspect_memory(int child_pid, void* addr) {
       exit(2);
     }
 
-    /*long data_read = ptrace(PTRACE_PEEKDATA, child_pid, addr, NULL);
-      if (data_read == -1) {
-      printf("Address (%p) does not contain a pointer.\n", addr);
-      return;
-      }else {*/
-
+    // Wait for the thread to exit before accessing the map
     pthread_join(pipe_thread, NULL);
+
     // Get the size of the mallocaed memory associated with the given pointer
     size_t ptr_size = ptr_sizes[addr];
 
-    // Step through the memory region 8 bytes at a time
-    for (int i = 0; i < ptr_size / 8; i++) {
-      // Get next address
-      void* next_addr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(addr) + 8 * i);
+    printf("Pointer (%p) has size %lu\n", addr, ptr_size);
 
-      // Peek data at the given address
-      long data_read = ptrace(PTRACE_PEEKDATA, child_pid, next_addr, NULL);
-      if (data_read == -1) {
-        // If peekdata fails, the address does not refer to a pointer, but a value instead.
-        printf("address (%p) contains a value\n", next_addr);
-      }else {
-        inspect_memory(child_pid, next_addr);
-      }
+    void* cur_addr = addr;
+
+    inspect_memory(child_pid, reinterpret_cast<void*>(data_read));
+
+    // Step through the memory region 8 bytes at a time
+    for (int i = 0; i < ptr_size / 8 - 1; i++) {
+      // Get next address
+      cur_addr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(cur_addr) + 8);
+
+      // Read the data at the next address
+      data_read = ptrace(PTRACE_PEEKDATA, child_pid, cur_addr, NULL);
+
+      // Check if data_read is a pointer
+      printf("data at address (%p) is %p\n", cur_addr, (void*)data_read);
+      
+      inspect_memory(child_pid, reinterpret_cast<void*>(data_read));
     }
   }
+
+  printf("\n");
 }
 
 int main(int argc, char** argv) {
@@ -256,8 +276,6 @@ int main(int argc, char** argv) {
       exit(2);
     }
 
-    printf("Created the fifo\n");
-
     // Start a thread to request head address from tracee
     pthread_t get_head_thread;
     if (pthread_create(&get_head_thread, NULL, gethead_thread_fn, NULL) != 0) {
@@ -297,7 +315,9 @@ int main(int argc, char** argv) {
         exit(2);
       }
 
-      if(++counter % 1000 != 0) continue;
+      if(++counter % 100 != 0) continue;
+
+      printf("%d\n", counter / 100);
 
       if(WIFEXITED(status)) {
         printf("Child exited with status %d\n", WEXITSTATUS(status));
@@ -311,20 +331,15 @@ int main(int argc, char** argv) {
 
         // If the signal was a SIGTRAP, we stopped at a single step
         if (last_signal == SIGTRAP) {
-          // Inspect memory from head
-          inspect_memory(child_pid, head);
-          //printf("data read: %ld\n", data_read);
-        }	  //void* addr = head_region;
-        //if (memcmp((void*)head, (void*)zerobuf, sizeof(head)) == 0) {
-        //last_signal = 0;
-        //continue;
-        //}
-        //int val = *((int*)(head));
-        //node_t* next = head+sizeof(int);
-        //printf("Head has been filled with value %p\n", addr);
-        //printf("Next address is %p\n", next);
+
+          if (head_set) {
+            inspect_memory(child_pid, head);
+          }
+
+        }	 
 
         last_signal = 0;
+
       }
     }
   }

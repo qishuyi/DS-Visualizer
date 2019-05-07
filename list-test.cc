@@ -22,7 +22,6 @@ void* head_addr;
 bool getsize = false;
 
 void* thread_fn(void* u) {
-  printf("In the thread function\n");
   bool running = true;
   int fd;
 
@@ -41,10 +40,7 @@ void* thread_fn(void* u) {
     }
     close(fd);
 
-    if (args.is_addr == 0 && strcmp(args.msg, closing_msg) == 0){
-      // Exit the while loop and exit the thread if tracer sends a closing message
-      running = false;
-    }else if (args.is_addr == 0 && strcmp(args.msg, request_head_msg) == 0){
+    if (args.is_addr == 0 && strcmp(args.msg, request_head_msg) == 0){
       printf("Got a request head message\n");
       // The tracer sends a hello message
       fd = open(myfifo, O_WRONLY);
@@ -53,40 +49,36 @@ void* thread_fn(void* u) {
 	      exit(2);
       }
 
+      // Create a pipe_args struct with head address
       struct pipe_args pa = {
 	      .is_addr = 1,
 	      .addr = head_addr
       };
 
+      // Write pipe_args to the tracer
       if (write(fd, &pa, sizeof(pa)) != sizeof(pa)){
 	      perror("Write head failed in tracee");
 	      exit(2);
       }
-      
-      printf("In the tracee.\nHead allocated at %p\n", head_addr);
-      
+    
       close(fd);
     }else {
+      // The tracer is requesting the malloced size of an address
       fd = open(myfifo, O_WRONLY);
-      
-      printf("We got an address: %p\n", args.addr);
-      
-      // The tracer is requesting the size of a block of memory
+     
+      // Get malloced size of the pointer
       size_t ptr_size = malloc_usable_size(args.addr);
 
+      // Create a struct that contains the pointer size
       struct pipe_args pa = {
 	      .ptr_size = ptr_size
       };
 
+      // Send the struct to tracer over pipe
       if (write(fd, &pa, sizeof(pa)) != sizeof(pa)) {
         perror("Write failed in tracee thread_fn");
 	      exit(2);
       }
-
-      printf("Pointer %p has size %lu\n", args.addr, ptr_size);
-           
-      running = false;
-
       close(fd);
     }
   }
@@ -97,7 +89,6 @@ int main(int argc, char** argv) {
   node_t* first_node = (node_t*)malloc(sizeof(node_t));
   head_addr = static_cast<void*>(first_node);
 
-  printf("In the tracee: head address is %p\n", head_addr); 
   pthread_t pipe_thread;
   if (pthread_create(&pipe_thread, NULL, thread_fn, NULL) != 0) {
     perror("pthread_create failed");
@@ -110,6 +101,7 @@ int main(int argc, char** argv) {
   first_node->next = second_node;
 
   pthread_join(pipe_thread, NULL);
+
   return 0;
 }
 
