@@ -11,7 +11,7 @@ The visualizer uses D3v3 to generate the graphical user interface.
 
 ### Features
 
-##### Time Selector
+#### Time Selector
 
 The visualizer allows the user to select a time that correspond to a 
 sequential timeline of the program it logged. The gap represents a 
@@ -20,7 +20,7 @@ where the data structure is recorded, but does not guarantee a
 consistent relationship between the time step. 
 
 
-##### Search
+#### Search
 
 The visualizer has a search and a time selection function implemented. 
 Search will highlight (by filling the circle of) any matching node 
@@ -30,7 +30,7 @@ search will persist across time change by the drop down selector, until
 the user hits the reset button. 
 
 
-##### Mouseover
+#### Mouseover
 
 The visualizer supports mouseover on each node rendered. The tooltip 
 that appears on hover display the information associated with each one 
@@ -42,7 +42,7 @@ the tooltip. Though the implementation on the visualizer does support
 such and will display any of the child pointers within any memory it finds. 
 
 
-### requires
+### Requires
 
 From the root of the `visualizer.html`, `-.css`, `-.js`, the visualizer 
 requires a file `output/nodedata.csv` and `output/treedata.csv`.
@@ -50,7 +50,7 @@ requires a file `output/nodedata.csv` and `output/treedata.csv`.
 The files are white-space sensitive. 
 
 
-##### nodedata.csv
+#### nodedata.csv
 
 nodedata.csv requires the header `node,type,data` prior to the payload 
 for d3 and visualizer.js to successfully parse the file as a csv. This 
@@ -72,7 +72,7 @@ up its own line. Each line must have exactly two commas, and spaces
 after a comma can be empty, but not before. 
 
 
-##### treedata.csv 
+#### treedata.csv 
 
 nodedata.csv requires the header `name,parent` prior to the payload 
 for d3 and visualizer.js to successfully parse the file as a csv. This 
@@ -94,7 +94,7 @@ and null falls under parent, e.g. `0x0,null`, where 0x0 is the root of
 the tree.*
 
 
-##### convert_pairs_dfs.py
+#### convert_pairs_dfs.py
 
 This python script takes an input file `input.log` within the same 
 root directory as the script itself and produces a valid
@@ -146,7 +146,7 @@ An example of the input is below:
 To run the script, run the terminal command `python convert_pairs_dfs.py`
 
 
-##### convert_detailed_bfs.py
+#### convert_detailed_bfs.py
 
 This python script takes an input file `input.log` within the same 
 root directory as the script itself and produces a valid
