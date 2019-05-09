@@ -3,31 +3,33 @@
 A data structure visualizer
 
 <<<<<<< HEAD
-# How to run the visualizer
+# How to run the visualizer  
 Make sure to remove ``log.out`` file and ``myfifo`` before each run  
 type ``make`` to compile both the tracer and the test program  
 Call ``./visualizer list-test`` to run  
 ``log.out`` now contains the logging information  
-=======
 
 ## Memory Tracer
 
 ### Tracer
 
-- The tracer sets up a shared memory region the tracer and tracee using
-`shm`. It writes a magic number into the region and waits until the 
-tracee to overwrite the value. 
+- Setup: The tracer opens a named pipe, which the tracee will open at the other end. 
+In the tracer, we create a log file for visualization purpose. The tracer then starts
+a thread listening on one end of the pipe. The tracee will open the pipe on its end 
+when the head of data structure is created, and the tracer will request the head address
+from the tracee.  
 
 - The tracer interrupts the tracee's execution and begins instrumenting
 single stepping through the tracee. Though the tracer allows the user
 to define number of interruptions before it performs a full trace on the 
 tracee's memory.
 
-- When the tracer performs a trace, it begins with the head address 
-written into the shared memory region and scans the data that resides 
+- When the tracer performs a trace, it begins with the head address received 
+from the tracee and scans the data that resides 
 within the next `struct size` bytes of data sequantially using `PEEKDATA`. 
 
-- The tracer initiates a recursive call on any pointer-like value it
+- PEEKDATA returns -1 when the address given to ptrace is not a pointer. 
+The tracer initiates a recursive call on any pointer-like value it
 gathers from PEEKDATA, and repeats the process until no more pointer-
 like values are found within the tree. 
 
@@ -35,11 +37,7 @@ like values are found within the tree.
 linkage between the parent and child pointer, along with time step 
 information.
 
-- The execution of child resumes until the predefined number of steps, 
-and the tracing repeats. 
-
-- The tracer executes a converter script to write the log into the 
-format the visualizer takes.
+- The execution of child resumes and the tracing repeats until the child exits. 
 
 - The tracer opens the visualizer on a browser. 
 
