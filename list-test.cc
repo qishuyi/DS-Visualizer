@@ -40,7 +40,10 @@ void* thread_fn(void* u) {
     }
     close(fd);
 
-    if (args.is_addr == 0 && strcmp(args.msg, request_head_msg) == 0){
+    /*if (args.is_addr == 0 && strcmp(args.msg, closing_msg) == 0) {
+      printf("Received closing message\n");
+      running = false;
+    }else*/ if (args.is_addr == 0 && strcmp(args.msg, request_head_msg) == 0){
       printf("Got a request head message\n");
       // The tracer sends a hello message
       fd = open(myfifo, O_WRONLY);
@@ -100,7 +103,8 @@ int main(int argc, char** argv) {
   second_node->val = 21;
   first_node->next = second_node;
 
-  pthread_join(pipe_thread, NULL);
+  printf("Before joining\n");
+  // pthread_join(pipe_thread, NULL);
 
   return 0;
 }
