@@ -1,19 +1,20 @@
 <!DOCTYPE html>
-<!-- tree taken from http://bl.ocks.org/d3noob/fa0f16e271cb191ae85f -->
-<!-- mouseevents taken from http://bl.ocks.org/WilliamQLiu/76ae20060e19bf42d774 -->
-<!-- tooltip taken from http://bl.ocks.org/d3noob/a22c42db65eb00d4e369 -->
-<!-- dropdown take from http://bl.ocks.org/williaster/10ef968ccfdc71c30ef8 -->
+<!-- tree inspired by http://bl.ocks.org/d3noob/fa0f16e271cb191ae85f -->
+<!-- mouseevents inspired by http://bl.ocks.org/WilliamQLiu/76ae20060e19bf42d774 -->
+<!-- tooltip inspired by http://bl.ocks.org/d3noob/a22c42db65eb00d4e369 -->
+<!-- dropdown inspired by http://bl.ocks.org/williaster/10ef968ccfdc71c30ef8 -->
+<!-- searchbox inspired by http://stackoverflow.com/questions/18167236 -->
 
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>Collapsible Tree Example</title>
+    <title>Data Structure Visualizer</title>
     <link href="visualizer.css" rel="stylesheet">
 
   </head>
 
   <body>
-    <h1>Structure Visualizer</h1>
+    <h1>Data Structure Visualizer</h1>
 
     <div id='vis-container'></div>
 
@@ -22,8 +23,21 @@
     <!-- load visualizer -->
     <script src="visualizer.js"></script>
 
-    <select id="dropdown">
-    </select>
+  
+    
+    <div style="background-color: #f6f6f6; width: 100%; padding: 10px; margin-top: 10px;">
+      <center>
+        
+        Time:<select id="dropdown" style="margin-right: 50px; margin-bottom: 10px;">
+        </select><br>
+      
+        Search by: <input type='text' id='link_id'>
+        <input type='button' id='link' value='Search' onClick='set_search()'>
+        
+        <input type='button' id='link' value='Reset' onClick='reset_search()'>
+      
+      </center>
+    </div>
 
   </body>
 </html>
