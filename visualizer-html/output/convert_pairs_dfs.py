@@ -2,20 +2,16 @@ file = open("input.log", "r")
 f_nodes = open("nodedata.csv", "w")
 f_links = open("treedata.csv", "w")
 
-# "Python foreach equivalent"
-# "how to use dictionaries in Python"
 
-# node time_slice _struct ptr_addr_0
-# data _type _symbol _data
-# data _type _symbol _data
-# ptr _ptr ptr_addr1
-# ptr _ptr ptr_addr2
+# input must adhere to the following style:
+#
+# time_1,ptr_parent_1,ptr_child_1
+# time_1,ptr_parent_1,ptr_child_2
+#        ...
+# time_t,ptr_parent_p,ptr_child_n
+#
+# see input.log for example
 
-# node time_slice _struct _ptr_addr_1
-# data _type _symbol _data
-# data _type _symbol _data
-# ptr _ptr ptr_addr3
-# ptr _ptr ptr_addr4
 
 time_last = -1
 f_line_number = 0
