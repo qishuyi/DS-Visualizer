@@ -3,6 +3,53 @@
 A data structure visualizer
 
 
+## Memory Tracer
+
+### Tracer
+
+- The tracer sets up a shared memory region the tracer and tracee using
+`shm`. It writes a magic number into the region and waits until the 
+tracee to overwrite the value. 
+
+- The tracer interrupts the tracee's execution and begins instrumenting
+single stepping through the tracee. Though the tracer allows the user
+to define number of interruptions before it performs a full trace on the 
+tracee's memory.
+
+- When the tracer performs a trace, it begins with the head address 
+written into the shared memory region and scans the data that resides 
+within the next `struct size` bytes of data sequantially using `PEEKDATA`. 
+
+- The tracer initiates a recursive call on any pointer-like value it
+gathers from PEEKDATA, and repeats the process until no more pointer-
+like values are found within the tree. 
+
+- On each recurisve step it writes an entry in the log to denote the 
+linkage between the parent and child pointer, along with time step 
+information.
+
+- The execution of child resumes until the predefined number of steps, 
+and the tracing repeats. 
+
+- The tracer executes a converter script to write the log into the 
+format the visualizer takes.
+
+- The tracer opens the visualizer on a browser. 
+
+### Tracee
+
+
+
+
+### Challenges/Alternate Approaches
+
+
+
+### Limitations
+
+- Tracer can only track a single head, and cannot proceed with trace 
+when tracee deallocates or marks head (null)ss
+
 
 ## Visualizer Using D3
 
@@ -45,7 +92,7 @@ such and will display any of the child pointers within any memory it finds.
 ### Requires
 
 From the root of the `visualizer.html`, `-.css`, `-.js`, the visualizer 
-requires a file `output/nodedata.csv` and `output/treedata.csv`.
+requires `output/nodedata.csv` and `output/treedata.csv`.
 
 The files are white-space sensitive. 
 
@@ -179,6 +226,6 @@ To run the script, run the terminal command `python convert_detailed_bfs.py`
 
 - tree inspired by http://bl.ocks.org/d3noob/fa0f16e271cb191ae85f
 - mouseevents inspired by http://bl.ocks.org/WilliamQLiu/76ae20060e19bf42d774
-- tooltip inspired by http://bl.ocks.org/d3noob/a22c42db65eb00d4e369 -->
+- tooltip inspired by http://bl.ocks.org/d3noob/a22c42db65eb00d4e369
 - dropdown inspired by http://bl.ocks.org/williaster/10ef968ccfdc71c30ef8
 - searchbox inspired by http://stackoverflow.com/questions/18167236 
