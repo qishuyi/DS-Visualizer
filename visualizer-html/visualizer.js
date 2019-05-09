@@ -1,7 +1,7 @@
 
 // ************** Generate the tree diagram	 *****************
 var margin = {top: 20, right: 120, bottom: 20, left: 120},
-	width = 960 - margin.right - margin.left,
+	width = 2000 - margin.right - margin.left,
 	height = 500 - margin.top - margin.bottom;
 
 var i = 0;
@@ -28,16 +28,22 @@ var treeData = [];
 var payload = [];
 var root_global;
 var data_byTime = [];
-var time_default = 1;
+var time_default = 0;
+var time_last = time_default;
+
+var searching = false;
+var search_for = "";
 
 // load the external data
-d3.csv("treedata.csv", function(error, data) {
+d3.csv("output/treedata.csv", function(error, data) {
 
   console.log("DEBUG::: treedata.csv, " + data);
   var time_current;
+  var is_new = true;
   data.forEach(function(link) {
     if (link.name == "--") {
       time_current = link.parent;
+      if (is_new) { time_default = time_current; is_new = false; }
       data_byTime[time_current] = [];
     } else {
       console.log("DEBUG::: " + time_current + " " + link);
@@ -82,7 +88,7 @@ d3.csv("treedata.csv", function(error, data) {
 });
 
 
-d3.csv("nodedata.csv", function(error,data) {
+d3.csv("output/nodedata.csv", function(error,data) {
   var time;
 
   // Each line rerepsents a variable associated a node, under a timestamp
@@ -112,6 +118,7 @@ d3.csv("nodedata.csv", function(error,data) {
 
 function update(source, time_shown) {
   root = treeData[time_shown][0];
+  time_last = time_shown;
 
   console.log("DEBUG::: Updating visualization with time: "+ time_shown);
 
@@ -138,7 +145,13 @@ function update(source, time_shown) {
 
   nodeEnter.append("circle")
 	  .attr("r", 10)
-	  .style("fill", "#fff")
+	  .style("fill", function(d) {
+      console.log(d);
+      if (searching && d.name.includes(search_for))
+        return "blue";
+      else
+        return "#fff";
+      })
     .on("mouseover", function(d) {
             div.transition()
                 .duration(200)
@@ -176,6 +189,11 @@ function update(source, time_shown) {
 
 } // end update()
 
+function search_dependent_fill (d) {
+  console.log (d);
+  return "#fff";
+}
+
 
 function render_dropdown (keys) {
   console.log("DEBUG::: Inside dropdown " + keys);
@@ -203,7 +221,19 @@ function print_struct_content (d, i, time_shown) {
   return ret; 
 }
 
+function set_search() {
+  search_for = document.getElementById("link_id").value;
+  searching = true;
+  console.log("DEBUG::: Searching for \"" + search_for + "\"");
+  update(root_global, time_last);
+}
 
+function reset_search () {
+  document.getElementById("link_id").value = "";
+  searching = false;
+  console.log("DEBUG::: Resetting tree");
+  update(root_global, time_last);
+}
 
 
 
