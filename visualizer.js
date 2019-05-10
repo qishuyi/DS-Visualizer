@@ -35,7 +35,7 @@ var searching = false;
 var search_for = "";
 
 // load the external data
-d3.csv("output/treedata.csv", function(error, data) {
+d3.csv("./treedata.csv", function(error, data) {
 
   console.log("DEBUG::: treedata.csv, " + data);
   var time_current;
@@ -88,7 +88,7 @@ d3.csv("output/treedata.csv", function(error, data) {
 });
 
 
-d3.csv("output/nodedata.csv", function(error,data) {
+d3.csv("./nodedata.csv", function(error,data) {
   var time;
 
   // Each line rerepsents a variable associated a node, under a timestamp

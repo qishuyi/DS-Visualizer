@@ -1,4 +1,4 @@
-file = open("input.log", "r")
+file = open("./log.out", "r")
 f_nodes = open("nodedata.csv", "w")
 f_links = open("treedata.csv", "w")
 
@@ -71,7 +71,6 @@ for line in file:
 
 
 # end of file reading
-
 print(parents)
 print(children)
 

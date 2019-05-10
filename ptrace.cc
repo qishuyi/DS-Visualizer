@@ -110,8 +110,6 @@ void* getsize_thread_fn(void* s) {
     exit(2);
   }
 
-  // printf("Opened fifo in getsize\n");
-
   // Define a struct as pipe argument
   struct pipe_args pa {
     .is_addr = 1,
@@ -125,8 +123,6 @@ void* getsize_thread_fn(void* s) {
   }
 
   close(fd);
-
-  // printf("Written address to the pipe: %p\n", addr);
 
   // Open another file descriptor for reading
   fd = open(myfifo, O_RDONLY);
@@ -142,8 +138,6 @@ void* getsize_thread_fn(void* s) {
     exit(2);
   }
 
-  // printf("In the getsize thread: pointer is at %p, size is %zu\n", addr, answer.ptr_size);
-
   // Add the malloced size to the global mapping
   ptr_sizes[addr] = answer.ptr_size;
 
@@ -151,38 +145,6 @@ void* getsize_thread_fn(void* s) {
 
   return NULL;
 }
-
-/*
-void* closing_thread_fn(void* args) {
-  // Open a file descriptor for writing
-
-  printf("In the closing_thread_fn\n");
-
-  int fd = open(myfifo, O_WRONLY);
-  if (fd == -1) {
-    perror("open failed in closing_thread_fn");
-    exit(2);
-  }
-
-  printf("Opened a fd\n");
-
-  // Create a struct with closing message to send over pipe
-  pipe_args_t pa;
-  pa.is_addr = 0;
-  strcpy(pa.msg, closing_msg);
-
-  // Write the message to pipe
-  if (write(fd, &pa, sizeof(pa)) != sizeof(pa)) {
-    perror("write failed in closing_thread_fn");
-    exit(2);
-  } 
-
-  printf("Written the closing messahe\n");
-
-  close(fd);
-
-  return NULL;
-}*/
 
 /*
  * A recursive function that inspects memory contents of pointers
@@ -199,28 +161,19 @@ void inspect_memory(int child_pid, void* addr, void* parent_addr, int counter) {
   char* buf = (char*)malloc(sizeof(char));
 
   // If the address is NULL 
-  if (!addr) {
-    if (fprintf(log_file, "%d,%p,%p\n", counter, parent_addr, addr) < 0) {
-      perror("fprintf failed");
-      exit(2);
-    }
-    // printf("%d, %p, %p\n", counter, parent_addr, addr);
-    return;
-  }
+  if (!addr) return;
 
   // Read data at the given address
   long data_read = ptrace(PTRACE_PEEKDATA, child_pid, addr, NULL);
   if (data_read == -1) {
     // If ptrace peekdata returns -1, it means the address is a value instead of a pointer
-    // printf("address (%p) contains a value\n", addr);
-    return;
+   return;
   }else {
     if (parent_addr != NULL && fprintf(log_file, "%d,%p,%p\n", counter, parent_addr, addr) < 0) {
       perror("fprintf failed");
       exit(2);
     }
     
-
     pthread_t pipe_thread;
     thread_args_t args;
     args.addr = addr;
@@ -237,8 +190,6 @@ void inspect_memory(int child_pid, void* addr, void* parent_addr, int counter) {
     // Get the size of the mallocaed memory associated with the given pointer
     size_t ptr_size = ptr_sizes[addr];
 
-    // printf("Pointer (%p) has size %lu\n", addr, ptr_size);
-
     void* cur_addr = addr;
 
     inspect_memory(child_pid, reinterpret_cast<void*>(data_read), addr, counter);
@@ -252,8 +203,7 @@ void inspect_memory(int child_pid, void* addr, void* parent_addr, int counter) {
       data_read = ptrace(PTRACE_PEEKDATA, child_pid, cur_addr, NULL);
 
       // Check if data_read is a pointer
-      // printf("data at address (%p) is %p\n", cur_addr, (void*)data_read);
-      
+     
       inspect_memory(child_pid, reinterpret_cast<void*>(data_read), addr, counter);
     }
   }
@@ -262,6 +212,9 @@ void inspect_memory(int child_pid, void* addr, void* parent_addr, int counter) {
 }
 
 int main(int argc, char** argv) {
+
+  system("rm log.out");
+  system("rm myfifo");
   // Call fork to create a child process
   pid_t child_pid = fork();
   if(child_pid == -1) {
@@ -312,7 +265,6 @@ int main(int argc, char** argv) {
       exit(2);
     }
 
-    // printf("Head no longer exists\n");
     // Start a thread to request head address from tracee
     pthread_t get_head_thread;
     if (pthread_create(&get_head_thread, NULL, gethead_thread_fn, NULL) != 0) {
@@ -336,24 +288,8 @@ int main(int argc, char** argv) {
     bool running = true;
     int last_signal = 0;
     int counter = 0;
-    // initial_timestamp = time(NULL);
-    // printf("Initial timestamp is: %d\n", (int)seconds);
+
     while(running) {
-      /* time_t cur_timestamp = time(NULL);
- 
-      // When we reach the time limit set by the user, send a closing message to the tracee program and let it exit.
-      if ((int)cur_timestamp - (int)initial_timestamp > 60) {
-        fclose(log_file);
-        pthread_t closing_thread;
-        
-        if (pthread_create(&closing_thread, NULL, closing_thread_fn, NULL) != 0) {
-          perror("pthread_create failed for closing");
-          exit(2);
-        }
-
-        pthread_join(closing_thread, NULL);
-      }*/
-
       // Continue the process, delivering the last signal we received (if any)
       if(ptrace(PTRACE_SINGLESTEP, child_pid, NULL, last_signal) == -1) {
         perror("ptrace SINGLESTEP failed");
@@ -369,10 +305,6 @@ int main(int argc, char** argv) {
         exit(2);
       }
 
-      if (WIFEXITED(status)) {
-        printf("Child exited with status %d\n", WEXITSTATUS(status));
-        running = false; 
-      }
       // Increment counter
       counter++;
 
@@ -383,7 +315,7 @@ int main(int argc, char** argv) {
         printf("Child terminated with signal %d\n", WTERMSIG(status));
         running = false;
       } else if(counter % 100 == 0 && WIFSTOPPED(status)) {
-        printf("%d\n", counter / 100);
+        // printf("%d\n", counter / 100);
 
         // Get the signal delivered to the child
         last_signal = WSTOPSIG(status);
@@ -399,10 +331,23 @@ int main(int argc, char** argv) {
         last_signal = 0;
 
       }
-
     }
   }
 
+  fclose(log_file);
+
+  // Run converter
+  system("python ./convert_pairs_dfs.py");
+
+  // sleep(1);
+
+  // Run firefox
+  system("firefox ./visualizer.html ");
+
+  // system("rm myfifo");
+  // system("rm log.out");
+
+  
   return 0;
 }
 

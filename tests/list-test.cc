@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "vhelpers.h"
+#include "../vhelpers.h"
 
 typedef struct node {
   int val;
