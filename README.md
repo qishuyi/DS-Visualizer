@@ -2,7 +2,6 @@
 
 A data structure visualizer
 
-<<<<<<< HEAD
 # How to run the visualizer  
 Make sure to remove ``log.out`` file and ``myfifo`` before each run  
 type ``make`` to compile both the tracer and the test program  
@@ -20,9 +19,9 @@ when the head of data structure is created, and the tracer will request the head
 from the tracee.  
 
 - The tracer interrupts the tracee's execution and begins instrumenting
-single stepping through the tracee. Though the tracer allows the user
-to define number of interruptions before it performs a full trace on the 
-tracee's memory.
+single stepping through the tracee. The tracer single steps through the 
+tracee program though it traces the data structure every 100 steps. 
+Later we might make the number of steps user configurable.
 
 - When the tracer performs a trace, it begins with the head address received 
 from the tracee and scans the data that resides 
@@ -43,12 +42,21 @@ information.
 
 ### Tracee
 
+- The user needs to call a tracee function ``start_tracing(void* head_address)`` 
+and supply the head address as argument. ``start_tracing`` will start a thread listening
+on one end of the named pipe and send the head address to tracer via the pipe.  
 
+- As the tracer steps through the tracee program, the thread will always be running to
+receive pointer address from the tracer and send back its malloced size.  
 
+- The thread in the tracee will exit when main thread exits.
 
 ### Challenges/Alternate Approaches
 
-
+- We first tried allocating the head in a shared memory region and hoped to find its content by doing
+pointer arithmetics. However, there are paddings in between fields in a struct and by allocating the 
+head in a shared memory region, we do not necessarily have its address. This approach was therefore 
+deprecated.
 
 ### Limitations
 
