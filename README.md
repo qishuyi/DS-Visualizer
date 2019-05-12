@@ -12,12 +12,12 @@ The successful execution of the visualizer requires the visualized program to ha
 - `start_tracing(root)` after the root has been allocated. 
 
 
-###
+### Run
 
-- type `make` on terminal to compile both the tracer and all test programs
-- type `./visualizer ${binary-file}` to run visualizer and the test program.
+1. type `make` on terminal to compile both the tracer and all test programs
+2. type `./visualizer ${binary-file}` to run visualizer and the test program.
   - note: visualizer will run on any binary-file; data can be recorded if `vhelpers.h` and `start_tracing()` are included in program to be tracked. 
-- upon the exit of `./visualizer`, the visualizaion will be rendered on a self-opening firefox window, or it open be opened manually using `./visualizer.html`.
+2. upon the exit of `./visualizer`, the visualizaion will be rendered on a self-opening firefox window, or it open be opened manually using `./visualizer.html`.
 
 
 ### Compatibility
