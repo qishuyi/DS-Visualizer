@@ -71,8 +71,6 @@ for line in file:
 
 
 # end of file reading
-print(parents)
-print(children)
 
 # now print stuff
 for time in epoch.keys():
