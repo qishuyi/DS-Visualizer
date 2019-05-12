@@ -1,12 +1,28 @@
 # DS-Visualizer
 
-A data structure visualizer
+A data structure visualizer as part of CSC-395: Advanced Operating Systems with Charlie Curtsinger, completed in May 2019. 
 
-# How to run the visualizer  
-Make sure to remove ``log.out`` file and ``myfifo`` before each run  
-type ``make`` to compile both the tracer and the test program  
-Call ``./visualizer list-test`` to run  
-``log.out`` now contains the logging information  
+## How to run the visualizer  
+
+### Preparations
+
+The successful execution of the visualizer requires the visualized program to have:
+
+- `#include "vhelpers.h` and,
+- `start_tracing(root)` after the root has been allocated. 
+
+
+###
+
+- type `make` on terminal to compile both the tracer and all test programs
+- type `./visualizer ${binary-file}` to run visualizer and the test program.
+  - note: visualizer will run on any binary-file; data can be recorded if `vhelpers.h` and `start_tracing()` are included in program to be tracked. 
+- upon the exit of `./visualizer`, the visualizaion will be rendered on a self-opening firefox window, or it open be opened manually using `./visualizer.html`.
+
+
+### Compatibility
+
+This program has been tested only on Linux machines running on Intel x64-86 architecture. Avaibility of the pthread and ptrace library may limit the compatibility of this program. 
 
 ## Memory Tracer
 
@@ -242,4 +258,4 @@ To run the script, run the terminal command `python convert_detailed_bfs.py`
 - tooltip inspired by http://bl.ocks.org/d3noob/a22c42db65eb00d4e369
 - dropdown inspired by http://bl.ocks.org/williaster/10ef968ccfdc71c30ef8
 - searchbox inspired by http://stackoverflow.com/questions/18167236 
->>>>>>> ff61f48b91177492786b13945dcd2164ba8e2841
+
